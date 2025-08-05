@@ -1,5 +1,5 @@
         // Import necessary components from a global object provided by the CDN scripts
-        const { useState, useRef, useEffect, useMemo, useCallback } = React;
+        const { useState, useRef, useEffect, useMemo } = React;
         const { Circle, CheckCircle, Calendar, Archive, Trash2, ArchiveRestore, ChevronDown, FileText, MessageSquare, Star, Plus, View, Link: LinkIcon, X, LogOut, AlertTriangle } = lucide;
 
         // --- Firebase SDKs ---
@@ -274,47 +274,12 @@
                 return groups;
             }, [sheets]);
 
-            const pendingKey = useMemo(() => `pending-updates-${user.uid}`, [user]);
-
-            const saveWithRetry = async (sheetId, updates, retries = 3) => {
-                const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
-                for (let attempt = 0; attempt < retries; attempt++) {
-                    try {
-                        await setDoc(sheetRef, updates, { merge: true });
-                        return true;
-                    } catch (err) {
-                        console.error('Failed to update sheet', err);
-                        await new Promise(res => setTimeout(res, 500 * Math.pow(2, attempt)));
-                    }
-                }
-                return false;
-            };
-
-            const flushPending = useCallback(async () => {
-                const queue = JSON.parse(localStorage.getItem(pendingKey) || '[]');
-                if (queue.length === 0) return;
-                const remaining = [];
-                for (const { sheetId, updates } of queue) {
-                    const ok = await saveWithRetry(sheetId, updates);
-                    if (!ok) remaining.push({ sheetId, updates });
-                }
-                if (remaining.length === 0) localStorage.removeItem(pendingKey);
-                else localStorage.setItem(pendingKey, JSON.stringify(remaining));
-            }, [pendingKey]);
-
-            useEffect(() => {
-                flushPending();
-                window.addEventListener('online', flushPending);
-                return () => window.removeEventListener('online', flushPending);
-            }, [flushPending]);
-
             const updateSheet = async (sheetId, updates) => {
-                const ok = await saveWithRetry(sheetId, updates);
-                if (!ok) {
-                    const queue = JSON.parse(localStorage.getItem(pendingKey) || '[]');
-                    queue.push({ sheetId, updates });
-                    localStorage.setItem(pendingKey, JSON.stringify(queue));
-                    alert('Changes will be saved when connection is restored.');
+                const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
+                try {
+                    await setDoc(sheetRef, updates, { merge: true });
+                } catch (error) {
+                    console.error("Error updating document: ", error);
                 }
             };
 
