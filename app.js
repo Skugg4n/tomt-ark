@@ -613,8 +613,42 @@ const TodoApp = ({
       return;
     }
 
-    // Tab, Backspace, Arrow keys logic
-    // ... (condensed for brevity)
+    switch (e.key) {
+      case 'Tab':
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleItemUpdate(id, {
+            indent: Math.max(0, currentItem.indent - 1)
+          });
+        } else {
+          if (originalIndex > 0 && activeSheet.items[originalIndex - 1].indent >= currentItem.indent) {
+            handleItemUpdate(id, {
+              indent: Math.min(10, currentItem.indent + 1)
+            });
+          }
+        }
+        break;
+      case 'Backspace':
+        if (currentItem.content === '' && activeSheet.items.length > 1) {
+          e.preventDefault();
+          let nextActiveId = null;
+          if (originalIndex > 0) nextActiveId = activeSheet.items[originalIndex - 1].id;
+          const remainingItems = activeSheet.items.filter(item => item.id !== id);
+          updateSheet(activeSheetId, {
+            items: remainingItems
+          });
+          setActiveId(nextActiveId);
+        }
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        if (originalIndex > 0) setActiveId(activeSheet.items[originalIndex - 1].id);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (originalIndex < activeSheet.items.length - 1) setActiveId(activeSheet.items[originalIndex + 1].id);
+        break;
+    }
   };
   const handleAddSheet = async () => {
     try {
