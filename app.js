@@ -3,7 +3,8 @@ const {
   useState,
   useRef,
   useEffect,
-  useMemo
+  useMemo,
+  useCallback
 } = React;
 const {
   Circle,
@@ -516,7 +517,8 @@ const TodoApp = ({
     });
     return groups;
   }, [sheets]);
-  const updateSheet = async (sheetId, updates, retries = 3) => {
+  const pendingKey = useMemo(() => `pending-updates-${user.uid}`, [user]);
+  const saveWithRetry = async (sheetId, updates, retries = 3) => {
     const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
@@ -526,14 +528,43 @@ const TodoApp = ({
         return true;
       } catch (err) {
         console.error('Failed to update sheet', err);
-        if (attempt === retries - 1) {
-          alert('Could not save changes. Please try again.');
-        } else {
-          await new Promise(res => setTimeout(res, 500 * Math.pow(2, attempt)));
-        }
+        await new Promise(res => setTimeout(res, 500 * Math.pow(2, attempt)));
       }
     }
     return false;
+  };
+  const flushPending = useCallback(async () => {
+    const queue = JSON.parse(localStorage.getItem(pendingKey) || '[]');
+    if (queue.length === 0) return;
+    const remaining = [];
+    for (const {
+      sheetId,
+      updates
+    } of queue) {
+      const ok = await saveWithRetry(sheetId, updates);
+      if (!ok) remaining.push({
+        sheetId,
+        updates
+      });
+    }
+    if (remaining.length === 0) localStorage.removeItem(pendingKey);else localStorage.setItem(pendingKey, JSON.stringify(remaining));
+  }, [pendingKey]);
+  useEffect(() => {
+    flushPending();
+    window.addEventListener('online', flushPending);
+    return () => window.removeEventListener('online', flushPending);
+  }, [flushPending]);
+  const updateSheet = async (sheetId, updates) => {
+    const ok = await saveWithRetry(sheetId, updates);
+    if (!ok) {
+      const queue = JSON.parse(localStorage.getItem(pendingKey) || '[]');
+      queue.push({
+        sheetId,
+        updates
+      });
+      localStorage.setItem(pendingKey, JSON.stringify(queue));
+      alert('Changes will be saved when connection is restored.');
+    }
   };
   const handleItemUpdate = async (itemId, updates, targetSheetId) => {
     const sheetToUpdateId = targetSheetId || activeSheetId;
