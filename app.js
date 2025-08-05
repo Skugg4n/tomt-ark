@@ -29,15 +29,15 @@ const {
 const {
   initializeApp
 } = firebase.app;
-  const {
-    getAuth,
-    GoogleAuthProvider,
-    signInWithPopup,
-    onAuthStateChanged,
-    signOut,
-    setPersistence,
-    browserLocalPersistence
-  } = firebase.auth;
+const {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+  signOut,
+  setPersistence,
+  browserLocalPersistence
+} = firebase.auth;
 const {
   getFirestore,
   collection,
@@ -63,10 +63,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  setPersistence(auth, browserLocalPersistence).catch(err => console.error('Failed to set auth persistence', err));
-  const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(err => console.error('Failed to set auth persistence', err));
+const db = getFirestore(app);
 
 // --- Helper functions ---
 const generateId = () => doc(collection(db, 'temp')).id;
@@ -516,17 +516,26 @@ const TodoApp = ({
     });
     return groups;
   }, [sheets]);
-  const updateSheet = async (sheetId, updates) => {
-    try {
-      const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
-      await setDoc(sheetRef, updates, {
-        merge: true
-      });
-    } catch (err) {
-      console.error('Failed to update sheet', err);
+  const updateSheet = async (sheetId, updates, retries = 3) => {
+    const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        await setDoc(sheetRef, updates, {
+          merge: true
+        });
+        return true;
+      } catch (err) {
+        console.error('Failed to update sheet', err);
+        if (attempt === retries - 1) {
+          alert('Could not save changes. Please try again.');
+        } else {
+          await new Promise(res => setTimeout(res, 500 * Math.pow(2, attempt)));
+        }
+      }
     }
+    return false;
   };
-  const handleItemUpdate = (itemId, updates, targetSheetId) => {
+  const handleItemUpdate = async (itemId, updates, targetSheetId) => {
     const sheetToUpdateId = targetSheetId || activeSheetId;
     const sheet = sheets.find(s => s.id === sheetToUpdateId);
     if (!sheet) return;
@@ -534,47 +543,47 @@ const TodoApp = ({
       ...item,
       ...updates
     } : item);
-    updateSheet(sheetToUpdateId, {
+    await updateSheet(sheetToUpdateId, {
       items: newItems
     });
   };
-  const handleArchive = id => {
+  const handleArchive = async id => {
     const block = findItemBlock(activeSheet.items, id);
     if (!block) return;
     const blockToArchive = activeSheet.items.slice(block.startIndex, block.endIndex + 1);
     const remainingItems = [...activeSheet.items.slice(0, block.startIndex), ...activeSheet.items.slice(block.endIndex + 1)];
-    updateSheet(activeSheetId, {
+    await updateSheet(activeSheetId, {
       items: remainingItems,
       archivedItems: [...blockToArchive, ...(activeSheet.archivedItems || [])]
     });
   };
-  const handleDelete = id => {
+  const handleDelete = async id => {
     const block = findItemBlock(activeSheet.items, id);
     if (!block) return;
     const remainingItems = [...activeSheet.items.slice(0, block.startIndex), ...activeSheet.items.slice(block.endIndex + 1)];
-    updateSheet(activeSheetId, {
+    await updateSheet(activeSheetId, {
       items: remainingItems
     });
   };
-  const handlePermanentDelete = id => {
+  const handlePermanentDelete = async id => {
     const block = findItemBlock(activeSheet.archivedItems, id);
     if (!block) return;
     const remainingItems = [...(activeSheet.archivedItems || []).slice(0, block.startIndex), ...(activeSheet.archivedItems || []).slice(block.endIndex + 1)];
-    updateSheet(activeSheetId, {
+    await updateSheet(activeSheetId, {
       archivedItems: remainingItems
     });
   };
-  const handleRestore = id => {
+  const handleRestore = async id => {
     const block = findItemBlock(activeSheet.archivedItems, id);
     if (!block) return;
     const blockToRestore = activeSheet.archivedItems.slice(block.startIndex, block.endIndex + 1);
     const remainingArchived = [...(activeSheet.archivedItems || []).slice(0, block.startIndex), ...(activeSheet.archivedItems || []).slice(block.endIndex + 1)];
-    updateSheet(activeSheetId, {
+    await updateSheet(activeSheetId, {
       items: [...activeSheet.items, ...blockToRestore],
       archivedItems: remainingArchived
     });
   };
-  const handleSetPriority = (itemId, sheetId, priority) => {
+  const handleSetPriority = async (itemId, sheetId, priority) => {
     const sheet = sheets.find(s => s.id === sheetId);
     if (!sheet) return;
     const item = sheet.items.find(i => i.id === itemId);
@@ -583,12 +592,12 @@ const TodoApp = ({
     if (priority > 0) {
       newContent = `!${priority} ` + newContent;
     }
-    handleItemUpdate(itemId, {
+    await handleItemUpdate(itemId, {
       content: newContent
     }, sheetId);
     setEditingPriorityId(null);
   };
-  const handleKeyDown = (e, id) => {
+  const handleKeyDown = async (e, id) => {
     const originalIndex = activeSheet.items.findIndex(item => item.id === id);
     if (originalIndex === -1) return;
     const currentItem = activeSheet.items[originalIndex];
@@ -609,7 +618,7 @@ const TodoApp = ({
         isHighlighted: false
       };
       const newItems = [...activeSheet.items.slice(0, originalIndex + 1), newItem, ...activeSheet.items.slice(originalIndex + 1)];
-      updateSheet(activeSheetId, {
+      await updateSheet(activeSheetId, {
         items: newItems
       });
       setActiveId(newItem.id);
@@ -619,12 +628,12 @@ const TodoApp = ({
       case 'Tab':
         e.preventDefault();
         if (e.shiftKey) {
-          handleItemUpdate(id, {
+          await handleItemUpdate(id, {
             indent: Math.max(0, currentItem.indent - 1)
           });
         } else {
           if (originalIndex > 0 && activeSheet.items[originalIndex - 1].indent >= currentItem.indent) {
-            handleItemUpdate(id, {
+            await handleItemUpdate(id, {
               indent: Math.min(10, currentItem.indent + 1)
             });
           }
@@ -636,7 +645,7 @@ const TodoApp = ({
           let nextActiveId = null;
           if (originalIndex > 0) nextActiveId = activeSheet.items[originalIndex - 1].id;
           const remainingItems = activeSheet.items.filter(item => item.id !== id);
-          updateSheet(activeSheetId, {
+          await updateSheet(activeSheetId, {
             items: remainingItems
           });
           setActiveId(nextActiveId);
@@ -876,9 +885,11 @@ const TodoApp = ({
     className: "text-xs text-gray-400 mt-6 text-center px-4"
   }, /*#__PURE__*/React.createElement("p", null, /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, "Markdown:"), " # Rubrik | **Fet** | *Kursiv* | !1 - !5 Prio \xA0\xA0\xB7\xA0\xA0 ", /*#__PURE__*/React.createElement("span", {
+  }, "Markdown:"), " # Heading | **Bold** | *Italic* | !1 - !5 Priority \xA0\xA0\xB7\xA0\xA0 ", /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, "Kortkommandon:"), " Enter, Tab, Pilar, Backspace"))));
+  }, "Shortcuts:"), " Enter, Tab, Arrows, Backspace"), /*#__PURE__*/React.createElement("p", {
+    className: "mt-1"
+  }, "Tomt Ark by Turbin v0.1"))));
 };
 
 // --- Top-level Component to handle Auth State ---
