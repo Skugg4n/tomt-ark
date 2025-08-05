@@ -5,7 +5,7 @@
         // --- Firebase SDKs ---
         // These are ESM modules, so we need to import them from the global Firebase object
         const { initializeApp } = firebase.app;
-        const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } = firebase.auth;
+        const { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } = firebase.auth;
         const { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, deleteDoc, query, orderBy, serverTimestamp } = firebase.firestore;
 
         // User's Firebase Configuration
@@ -22,6 +22,7 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        setPersistence(auth, browserLocalPersistence).catch(err => console.error('Failed to set auth persistence', err));
         const db = getFirestore(app);
 
         // --- Helper functions ---
