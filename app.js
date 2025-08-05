@@ -29,13 +29,15 @@ const {
 const {
   initializeApp
 } = firebase.app;
-const {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  onAuthStateChanged,
-  signOut
-} = firebase.auth;
+  const {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    onAuthStateChanged,
+    signOut,
+    setPersistence,
+    browserLocalPersistence
+  } = firebase.auth;
 const {
   getFirestore,
   collection,
@@ -61,9 +63,10 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  setPersistence(auth, browserLocalPersistence).catch(err => console.error('Failed to set auth persistence', err));
+  const db = getFirestore(app);
 
 // --- Helper functions ---
 const generateId = () => doc(collection(db, 'temp')).id;
