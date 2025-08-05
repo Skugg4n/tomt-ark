@@ -437,6 +437,7 @@ const TodoApp = ({
   const [editingPriorityId, setEditingPriorityId] = useState(null);
   useEffect(() => {
     if (!user) return;
+    setIsLoading(true);
     const sheetsCollectionRef = collection(db, 'users', user.uid, 'sheets');
     const q = query(sheetsCollectionRef, orderBy('createdAt'));
     const unsubscribe = onSnapshot(q, snapshot => {
@@ -513,10 +514,14 @@ const TodoApp = ({
     return groups;
   }, [sheets]);
   const updateSheet = async (sheetId, updates) => {
-    const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
-    await setDoc(sheetRef, updates, {
-      merge: true
-    });
+    try {
+      const sheetRef = doc(db, 'users', user.uid, 'sheets', sheetId);
+      await setDoc(sheetRef, updates, {
+        merge: true
+      });
+    } catch (err) {
+      console.error('Failed to update sheet', err);
+    }
   };
   const handleItemUpdate = (itemId, updates, targetSheetId) => {
     const sheetToUpdateId = targetSheetId || activeSheetId;
@@ -612,23 +617,27 @@ const TodoApp = ({
     // ... (condensed for brevity)
   };
   const handleAddSheet = async () => {
-    const sheetsCollectionRef = collection(db, 'users', user.uid, 'sheets');
-    const newSheet = {
-      title: 'Nytt Ark',
-      items: [{
-        id: generateId(),
-        content: '',
-        completed: false,
-        indent: 0,
-        deadline: null,
-        notes: '',
-        isHighlighted: false
-      }],
-      archivedItems: [],
-      createdAt: serverTimestamp()
-    };
-    const docRef = await addDoc(sheetsCollectionRef, newSheet);
-    setActiveSheetId(docRef.id);
+    try {
+      const sheetsCollectionRef = collection(db, 'users', user.uid, 'sheets');
+      const newSheet = {
+        title: 'Nytt Ark',
+        items: [{
+          id: generateId(),
+          content: '',
+          completed: false,
+          indent: 0,
+          deadline: null,
+          notes: '',
+          isHighlighted: false
+        }],
+        archivedItems: [],
+        createdAt: serverTimestamp()
+      };
+      const docRef = await addDoc(sheetsCollectionRef, newSheet);
+      setActiveSheetId(docRef.id);
+    } catch (err) {
+      console.error('Failed to add sheet', err);
+    }
   };
   const handleNavigate = (sheetId, itemId) => {
     setActiveSheetId(sheetId);
