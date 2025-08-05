@@ -440,7 +440,7 @@ const TodoApp = ({
     setIsLoading(true);
     const sheetsCollectionRef = collection(db, 'users', user.uid, 'sheets');
     const q = query(sheetsCollectionRef, orderBy('createdAt'));
-    const unsubscribe = onSnapshot(q, snapshot => {
+    const unsubscribe = onSnapshot(q, async snapshot => {
       if (snapshot.empty) {
         const defaultSheets = [{
           title: 'Jobb',
@@ -469,7 +469,7 @@ const TodoApp = ({
           archivedItems: [],
           createdAt: serverTimestamp()
         }];
-        defaultSheets.forEach(sheet => addDoc(sheetsCollectionRef, sheet));
+        await Promise.all(defaultSheets.map(sheet => addDoc(sheetsCollectionRef, sheet)));
       } else {
         const sheetsData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -612,7 +612,6 @@ const TodoApp = ({
       setActiveId(newItem.id);
       return;
     }
-
     switch (e.key) {
       case 'Tab':
         e.preventDefault();

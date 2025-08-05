@@ -222,13 +222,13 @@
                 const sheetsCollectionRef = collection(db, 'users', user.uid, 'sheets');
                 const q = query(sheetsCollectionRef, orderBy('createdAt'));
 
-                const unsubscribe = onSnapshot(q, (snapshot) => {
+                const unsubscribe = onSnapshot(q, async (snapshot) => {
                     if (snapshot.empty) {
                         const defaultSheets = [
                             { title: 'Jobb', items: [{ id: generateId(), content: '# Projekt: Lansera ny Hemsida (Q4)', completed: false, indent: 0, deadline: null, notes: '', isHighlighted: false }], archivedItems: [], createdAt: serverTimestamp() },
                             { title: 'Privat', items: [{ id: generateId(), content: '# Personliga mål', completed: false, indent: 0, deadline: null, notes: '', isHighlighted: false }], archivedItems: [], createdAt: serverTimestamp() }
                         ];
-                        defaultSheets.forEach(sheet => addDoc(sheetsCollectionRef, sheet));
+                        await Promise.all(defaultSheets.map(sheet => addDoc(sheetsCollectionRef, sheet)));
                     } else {
                         const sheetsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                         setSheets(sheetsData);
