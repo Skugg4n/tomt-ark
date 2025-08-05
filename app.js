@@ -538,6 +538,23 @@ const TodoApp = ({
       items: newItems
     });
   };
+  const findItemBlock = (itemList, id) => {
+    const startIndex = (itemList || []).findIndex(i => i.id === id);
+    if (startIndex === -1) return null;
+    const startItem = itemList[startIndex];
+    let endIndex = startIndex;
+    for (let i = startIndex + 1; i < itemList.length; i++) {
+      if (itemList[i].indent > startItem.indent) {
+        endIndex = i;
+      } else {
+        break;
+      }
+    }
+    return {
+      startIndex,
+      endIndex
+    };
+  };
   const handleArchive = async id => {
     const block = findItemBlock(activeSheet.items, id);
     if (!block) return;
