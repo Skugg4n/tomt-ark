@@ -216,6 +216,8 @@
             const [expandedNoteId, setExpandedNoteId] = useState(null);
             const [isEditingTitle, setIsEditingTitle] = useState(false);
             const [editingPriorityId, setEditingPriorityId] = useState(null);
+            const [history, setHistory] = useState([]);
+            const [future, setFuture] = useState([]);
 
             useEffect(() => {
                 if (!user) return;
@@ -288,7 +290,10 @@
                 const sheet = sheets.find(s => s.id === sheetToUpdateId);
                 if (!sheet) return;
 
-                const newItems = (sheet.items || []).map(item => item.id === itemId ? { ...item, ...updates } : item);
+                const prevItems = sheet.items || [];
+                const newItems = prevItems.map(item => item.id === itemId ? { ...item, ...updates } : item);
+                setHistory(h => [...h, { sheetId: sheetToUpdateId, items: prevItems }]);
+                setFuture([]);
                 await updateSheet(sheetToUpdateId, { items: newItems });
             };
 
@@ -350,6 +355,45 @@
                 await handleItemUpdate(itemId, { content: newContent }, sheetId);
                 setEditingPriorityId(null);
             };
+
+            const switchTab = (direction) => {
+                const tabIds = ['agenda', ...sheets.map(s => s.id)];
+                const index = tabIds.indexOf(activeSheetId);
+                if (index === -1) return;
+                const newIndex = (index + direction + tabIds.length) % tabIds.length;
+                setActiveSheetId(tabIds[newIndex]);
+            };
+
+            const undo = async () => {
+                const last = history[history.length - 1];
+                if (!last) return;
+                setHistory(history.slice(0, -1));
+                setFuture(f => [...f, { sheetId: last.sheetId, items: sheets.find(s => s.id === last.sheetId)?.items || [] }]);
+                await updateSheet(last.sheetId, { items: last.items });
+            };
+
+            const redo = async () => {
+                const next = future[future.length - 1];
+                if (!next) return;
+                setFuture(future.slice(0, -1));
+                setHistory(h => [...h, { sheetId: next.sheetId, items: sheets.find(s => s.id === next.sheetId)?.items || [] }]);
+                await updateSheet(next.sheetId, { items: next.items });
+            };
+
+            useEffect(() => {
+                const handleGlobalKey = (e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.altKey) {
+                        if (e.key === 'ArrowRight') { e.preventDefault(); switchTab(1); }
+                        if (e.key === 'ArrowLeft') { e.preventDefault(); switchTab(-1); }
+                    }
+                    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+                        e.preventDefault();
+                        if (e.shiftKey) { redo(); } else { undo(); }
+                    }
+                };
+                window.addEventListener('keydown', handleGlobalKey);
+                return () => window.removeEventListener('keydown', handleGlobalKey);
+            }, [sheets, activeSheetId, history, future]);
 
             const handleKeyDown = async (e, id) => {
                 const originalIndex = activeSheet.items.findIndex(item => item.id === id);
@@ -539,8 +583,8 @@
                             </>
                         )}
                         <div className="text-xs text-gray-400 mt-6 text-center px-4">
-                            <p><span className="font-bold">Markdown:</span> # Heading | **Bold** | *Italic* | !1 - !5 Priority &nbsp;&nbsp;·&nbsp;&nbsp; <span className="font-bold">Shortcuts:</span> Enter, Tab, Arrows, Backspace</p>
-                            <p className="mt-1">Tomt Ark by Turbin v0.1</p>
+                            <p><span className="font-bold">Markdown:</span> # Heading | **Bold** | *Italic* | !1 - !5 Priority &nbsp;&nbsp;·&nbsp;&nbsp; <span className="font-bold">Shortcuts:</span> Enter, Tab, Arrows, Backspace, Cmd+Alt+Arrow Tabs, Cmd+Z Undo, Cmd+Shift+Z Redo</p>
+                            <p className="mt-1">Tomt Ark by Turbin v0.1.2</p>
                         </div>
                     </div>
                 </div>

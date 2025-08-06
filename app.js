@@ -438,6 +438,8 @@ const TodoApp = ({
   const [expandedNoteId, setExpandedNoteId] = useState(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingPriorityId, setEditingPriorityId] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [future, setFuture] = useState([]);
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
@@ -530,10 +532,16 @@ const TodoApp = ({
     const sheetToUpdateId = targetSheetId || activeSheetId;
     const sheet = sheets.find(s => s.id === sheetToUpdateId);
     if (!sheet) return;
-    const newItems = (sheet.items || []).map(item => item.id === itemId ? {
+    const prevItems = sheet.items || [];
+    const newItems = prevItems.map(item => item.id === itemId ? {
       ...item,
       ...updates
     } : item);
+    setHistory(h => [...h, {
+      sheetId: sheetToUpdateId,
+      items: prevItems
+    }]);
+    setFuture([]);
     await updateSheet(sheetToUpdateId, {
       items: newItems
     });
@@ -605,6 +613,61 @@ const TodoApp = ({
     }, sheetId);
     setEditingPriorityId(null);
   };
+  const switchTab = direction => {
+    const tabIds = ['agenda', ...sheets.map(s => s.id)];
+    const index = tabIds.indexOf(activeSheetId);
+    if (index === -1) return;
+    const newIndex = (index + direction + tabIds.length) % tabIds.length;
+    setActiveSheetId(tabIds[newIndex]);
+  };
+  const undo = async () => {
+    const last = history[history.length - 1];
+    if (!last) return;
+    setHistory(history.slice(0, -1));
+    setFuture(f => [...f, {
+      sheetId: last.sheetId,
+      items: sheets.find(s => s.id === last.sheetId)?.items || []
+    }]);
+    await updateSheet(last.sheetId, {
+      items: last.items
+    });
+  };
+  const redo = async () => {
+    const next = future[future.length - 1];
+    if (!next) return;
+    setFuture(future.slice(0, -1));
+    setHistory(h => [...h, {
+      sheetId: next.sheetId,
+      items: sheets.find(s => s.id === next.sheetId)?.items || []
+    }]);
+    await updateSheet(next.sheetId, {
+      items: next.items
+    });
+  };
+  useEffect(() => {
+    const handleGlobalKey = e => {
+      if ((e.metaKey || e.ctrlKey) && e.altKey) {
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          switchTab(1);
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          switchTab(-1);
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, [sheets, activeSheetId, history, future]);
   const handleKeyDown = async (e, id) => {
     const originalIndex = activeSheet.items.findIndex(item => item.id === id);
     if (originalIndex === -1) return;
@@ -895,9 +958,9 @@ const TodoApp = ({
     className: "font-bold"
   }, "Markdown:"), " # Heading | **Bold** | *Italic* | !1 - !5 Priority \xA0\xA0\xB7\xA0\xA0 ", /*#__PURE__*/React.createElement("span", {
     className: "font-bold"
-  }, "Shortcuts:"), " Enter, Tab, Arrows, Backspace"), /*#__PURE__*/React.createElement("p", {
+  }, "Shortcuts:"), " Enter, Tab, Arrows, Backspace, Cmd+Alt+Arrow Tabs, Cmd+Z Undo, Cmd+Shift+Z Redo"), /*#__PURE__*/React.createElement("p", {
     className: "mt-1"
-  }, "Tomt Ark by Turbin v0.1"))));
+  }, "Tomt Ark by Turbin v0.1.2"))));
 };
 
 // --- Top-level Component to handle Auth State ---
