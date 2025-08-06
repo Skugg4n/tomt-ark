@@ -287,11 +287,14 @@
 
             const handleItemUpdate = async (itemId, updates, targetSheetId) => {
                 const sheetToUpdateId = targetSheetId || activeSheetId;
-                const sheet = sheets.find(s => s.id === sheetToUpdateId);
-                if (!sheet) return;
+                const sheetIndex = sheets.findIndex(s => s.id === sheetToUpdateId);
+                if (sheetIndex === -1) return;
 
+                const sheet = sheets[sheetIndex];
                 const prevItems = sheet.items || [];
                 const newItems = prevItems.map(item => item.id === itemId ? { ...item, ...updates } : item);
+
+                setSheets(prevSheets => prevSheets.map((s, idx) => idx === sheetIndex ? { ...s, items: newItems } : s));
                 setHistory(h => [...h, { sheetId: sheetToUpdateId, items: prevItems }]);
                 setFuture([]);
                 await updateSheet(sheetToUpdateId, { items: newItems });
@@ -584,7 +587,7 @@
                         )}
                         <div className="text-xs text-gray-400 mt-6 text-center px-4">
                             <p><span className="font-bold">Markdown:</span> # Heading | **Bold** | *Italic* | !1 - !5 Priority &nbsp;&nbsp;·&nbsp;&nbsp; <span className="font-bold">Shortcuts:</span> Enter, Tab, Arrows, Backspace, Cmd+Alt+Arrow Tabs, Cmd+Z Undo, Cmd+Shift+Z Redo</p>
-                            <p className="mt-1">Tomt Ark by Turbin v0.1.2</p>
+                            <p className="mt-1">Tomt Ark by Turbin v0.1.3</p>
                         </div>
                     </div>
                 </div>

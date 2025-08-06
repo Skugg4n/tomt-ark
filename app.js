@@ -530,13 +530,18 @@ const TodoApp = ({
   };
   const handleItemUpdate = async (itemId, updates, targetSheetId) => {
     const sheetToUpdateId = targetSheetId || activeSheetId;
-    const sheet = sheets.find(s => s.id === sheetToUpdateId);
-    if (!sheet) return;
+    const sheetIndex = sheets.findIndex(s => s.id === sheetToUpdateId);
+    if (sheetIndex === -1) return;
+    const sheet = sheets[sheetIndex];
     const prevItems = sheet.items || [];
     const newItems = prevItems.map(item => item.id === itemId ? {
       ...item,
       ...updates
     } : item);
+    setSheets(prevSheets => prevSheets.map((s, idx) => idx === sheetIndex ? {
+      ...s,
+      items: newItems
+    } : s));
     setHistory(h => [...h, {
       sheetId: sheetToUpdateId,
       items: prevItems
@@ -960,7 +965,7 @@ const TodoApp = ({
     className: "font-bold"
   }, "Shortcuts:"), " Enter, Tab, Arrows, Backspace, Cmd+Alt+Arrow Tabs, Cmd+Z Undo, Cmd+Shift+Z Redo"), /*#__PURE__*/React.createElement("p", {
     className: "mt-1"
-  }, "Tomt Ark by Turbin v0.1.2"))));
+  }, "Tomt Ark by Turbin v0.1.3"))));
 };
 
 // --- Top-level Component to handle Auth State ---
